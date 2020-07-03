@@ -11,7 +11,7 @@ import { useAppContext } from "../libs/contextLib";
 import { useFormFields } from "../libs/hooksLib";
 import { onError } from "../libs/errorLib";
 import "./Signup.css";
-import { formContainer } from "aws-amplify";
+import { Auth } from "aws-amplify";
 
 
 export default function Signup() {
@@ -42,14 +42,41 @@ export default function Signup() {
         event.preventDefault();
 
         setIsLoading(true);
-        setNewUser("test");
-        setIsLoading(false);
+        
+        try {
+            const newUser = await Auth.signUp({
+                username: fields.email,
+                password: fields.password
+            });
+            setIsLoading(false);
+            setNewUser(newUser);
+        } catch (e) {
+            if (e.code === 'UsernameExistsException') {
+                const tryAgain = await Auth.resendSignUp(fields.email);
+                setNewUser(tryAgain);
+                setIsLoading(false);
+            } else {
+            onError(e);
+            setIsLoading(false);
+            }
+        }
     }
 
     async function handleConfirmationSubmit(event) {
         event.preventDefault();
 
         setIsLoading(true);
+
+        try {
+            await Auth.confirmSignUp(fields.email, fields.confirmationCode);
+            await Auth.signIn(fields.email, fields.password);
+
+            userHasAuthenticated(true);
+            history.push("/");
+        } catch (e) {
+            onError(e);
+            setIsLoading(false);
+        }
     }
 
     function renderConfirmationForm() {
